@@ -14,6 +14,7 @@ struct FileDropZoneView: View {
     @State private var isHovering = false
     @State private var showFilePicker = false
     @State private var statusMessage: String = ""
+    @State private var conversionOptions = ConversionOptions()
     
 
     
@@ -29,51 +30,71 @@ struct FileDropZoneView: View {
                     ConversionSettingsView(
                         fileURL: url,
                         availableFormats: availableOutputFormats,
-                        selectedFormat: $selectedOutputFormat
+                        selectedFormat: $selectedOutputFormat,
+                        options: $conversionOptions
                     )
                     
                     // IL NUOVO BOTTONE DI CONVERSIONE
                     Button(action: {
                         do {
-                            // 1. Chiediamo al manager di convertire l'immagine in memoria
-                            let imageData = try ConversionManager.shared.performConversion(fileURL: url, to: selectedOutputFormat)
+                            // 1. Ora riceviamo un ARRAY di dati!
+                            let dataArray = try ConversionManager.shared.performConversion(fileURL: url, to: selectedOutputFormat, options: conversionOptions)
                             
-                            // 2. Prepariamo la finestra di dialogo "Salva col nome"
-                            let savePanel = NSSavePanel()
+                            if dataArray.isEmpty { throw NSError(domain: "App", code: 1, userInfo: [NSLocalizedDescriptionKey: "Nessun dato generato."]) }
                             
-                            // Definiamo il nome suggerito (es: "miafoto.jpg")
-                            let newFileName = url.deletingPathExtension().lastPathComponent + "." + selectedOutputFormat
-                            savePanel.nameFieldStringValue = newFileName
-                            
-                            // Chiediamo alla finestra di aprirsi nella stessa cartella dell'originale
-                            savePanel.directoryURL = url.deletingLastPathComponent()
-                            
-                            // 3. Mostriamo la finestra e aspettiamo che l'utente clicchi "Salva" o "Annulla"
-                            if savePanel.runModal() == .OK, let saveURL = savePanel.url {
-                                // 4. L'utente ha dato l'OK! Ora abbiamo i permessi di scrittura di macOS per questo specifico file.
-                                try imageData.write(to: saveURL)
+                            if dataArray.count == 1 {
+                                // --- CASO A: SINGOLO FILE ---
+                                let savePanel = NSSavePanel()
+                                savePanel.nameFieldStringValue = url.deletingPathExtension().lastPathComponent + "." + selectedOutputFormat
+                                savePanel.directoryURL = url.deletingLastPathComponent()
                                 
-                                // Testo accorciato come richiesto
-                                self.statusMessage = "✅ Conversione effettuata con successo"
+                                if savePanel.runModal() == .OK, let saveURL = savePanel.url {
+                                    try dataArray[0].write(to: saveURL)
+                                    self.statusMessage = "✅ Salvato con successo"
+                                }
+                            } else {
+                                // --- CASO B: FILE MULTIPLI (Cartella) ---
+                                let openPanel = NSOpenPanel()
+                                openPanel.canChooseFiles = false
+                                openPanel.canChooseDirectories = true // Scegliamo una cartella di destinazione
+                                openPanel.canCreateDirectories = true
+                                openPanel.message = "Scegli dove salvare la cartella con le immagini convertite"
+                                openPanel.directoryURL = url.deletingLastPathComponent()
                                 
-                                // Torniamo alla schermata iniziale dopo 2 secondi
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                                    if self.statusMessage.contains("✅") {
-                                        self.selectedFileURL = nil
-                                        self.statusMessage = ""
+                                if openPanel.runModal() == .OK, let folderURL = openPanel.url {
+                                    // Creiamo la sottocartella
+                                    let folderName = "Converted_" + url.deletingPathExtension().lastPathComponent
+                                    let destinationFolder = folderURL.appendingPathComponent(folderName)
+                                    
+                                    try FileManager.default.createDirectory(at: destinationFolder, withIntermediateDirectories: true)
+                                    
+                                    // Salviamo ogni singola pagina
+                                    for (index, fileData) in dataArray.enumerated() {
+                                        let fileName = "\(index + 1).\(selectedOutputFormat)"
+                                        let fileURL = destinationFolder.appendingPathComponent(fileName)
+                                        try fileData.write(to: fileURL)
                                     }
+                                    
+                                    self.statusMessage = "✅ Salvate \(dataArray.count) immagini"
+                                }
+                            }
+                            
+                            // Ripuliamo la GUI
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                                if self.statusMessage.contains("✅") {
+                                    self.selectedFileURL = nil
+                                    self.statusMessage = ""
                                 }
                             }
                         } catch {
-                            // Errore più compatto
-                            self.statusMessage = "❌ Errore durante la conversione"
+                            self.statusMessage = "❌ Errore: \(error.localizedDescription)"
                         }
                     }) {
                         Label("Converti in \(selectedOutputFormat.uppercased())", systemImage: "wand.and.stars")
                             .font(.title3.bold())
-                            .frame(maxWidth: .infinity) // Allarga il testo dentro il bottone
+                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent) // Rende il bottone "Primario" (colorato in blu)
+                    .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .frame(width: 280)
                     .padding(.top, 10)
@@ -147,7 +168,7 @@ struct FileDropZoneView: View {
         .padding()
         .fileImporter(
             isPresented: $showFilePicker,
-            allowedContentTypes: [.image],
+            allowedContentTypes: [.image, .pdf],
             allowsMultipleSelection: false
         ) { result in
             switch result {

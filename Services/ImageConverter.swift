@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import PDFKit
 
 // 1. IL PROTOCOLLO (L'interfaccia)
 // Questo è il "contratto". Qualsiasi struttura o classe voglia comportarsi come un
@@ -27,14 +28,14 @@ protocol ImageConverter {
     /// I formati in cui questo convertitore sa trasformare l'immagine
     var supportedOutputFormats: [String] { get }
     
-    /// NUOVO: La funzione restituisce i dati grezzi (Data) invece di salvare direttamente
-    func convert(inputURL: URL, to targetFormat: String) throws -> Data
+    /// La funzione restituisce i dati grezzi (Data) invece di salvare direttamente
+    func convert(inputURL: URL, to targetFormat: String, options: ConversionOptions?) throws -> [Data]
 }
 
 // 1.5 L'ESTENSIONE (Il comportamento di default)
 // Tutte le struct che adottano ImageConverter erediteranno questa logica gratis!
 extension ImageConverter {
-    func convert(inputURL: URL, to targetFormat: String) throws -> Data {
+    func convert(inputURL: URL, to targetFormat: String, options: ConversionOptions?) throws -> [Data] {
         // Richiediamo i permessi per il Sandbox (per leggere il file di origine)
         let gotAccess = inputURL.startAccessingSecurityScopedResource()
         defer {
@@ -78,7 +79,7 @@ extension ImageConverter {
         }
         
         // Restituiamo i bit dell'immagine, sarà chi chiama la funzione a decidere dove salvarli!
-        return dataConvertita
+        return [dataConvertita]
     }
 }
 
@@ -123,4 +124,110 @@ struct GIFConverter: ImageConverter {
 struct JP2Converter: ImageConverter {
     let sourceFormat = "jp2"
     let supportedOutputFormats = ["png", "jpg", "tiff", "bmp", "gif"]
+}
+
+struct PDFConverter: ImageConverter {
+    let sourceFormat = "pdf"
+    let supportedOutputFormats = ["png", "jpg", "tiff", "bmp", "gif", "rtf", "txt"]
+    
+    func convert(inputURL: URL, to targetFormat: String, options: ConversionOptions?) throws -> [Data] {
+        let gotAccess = inputURL.startAccessingSecurityScopedResource()
+        defer {if gotAccess { inputURL.stopAccessingSecurityScopedResource() }}
+        
+        guard let pdfDoc = PDFDocument(url: inputURL) else {
+            throw ConversionError.decodeFailed
+        }
+    
+        let opts = options ?? ConversionOptions()
+        var pagesToProcess: [PDFPage] = []
+        
+        let totalPages = pdfDoc.pageCount
+        
+        switch opts.pageMode {
+                case "Singola":
+                    let idx = min(max(opts.singlePage - 1, 0), totalPages - 1)
+                    if let page = pdfDoc.page(at: idx) { pagesToProcess.append(page) }
+                case "Range":
+                    let start = min(max(opts.startPage - 1, 0), totalPages - 1)
+                    let end = min(max(opts.endPage - 1, 0), totalPages - 1)
+                    for i in start...end {
+                        if let page = pdfDoc.page(at: i) { pagesToProcess.append(page) }
+                    }
+                default: // "Tutte"
+                    for i in 0..<totalPages {
+                        if let page = pdfDoc.page(at: i) { pagesToProcess.append(page) }
+                    }
+                }
+        if targetFormat == "txt" {
+            let allText = pagesToProcess.compactMap { $0.string }.joined(separator: "\n\n--- Pagina Seguente ---\n\n")
+            return [allText.data(using: .utf8) ?? Data()]
+        }
+        else if targetFormat == "rtf" {
+            let fullAttributedString = NSMutableAttributedString()
+            for page in pagesToProcess {
+                if let attrString = page.attributedString {
+                    fullAttributedString.append(attrString)
+                    fullAttributedString.append(NSAttributedString(string: "\n\n"))
+                }
+            }
+            // Convertiamo in formato RTF
+            let rtfData = try fullAttributedString.data(from: NSRange(location: 0, length: fullAttributedString.length),
+            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf])
+            return [rtfData]
+        }
+        else {
+            var outputDataArray: [Data] = []
+            
+            let tipoDiCodifica: NSBitmapImageRep.FileType
+            var proprieta: [NSBitmapImageRep.PropertyKey: Any] = [:]
+            
+            switch targetFormat {
+                case "jpg", "jpeg":
+                    tipoDiCodifica = .jpeg
+                    proprieta = [.compressionFactor: 0.8]
+                case "png": tipoDiCodifica = .png
+                case "tiff", "tif": tipoDiCodifica = .tiff
+                case "bmp": tipoDiCodifica = .bmp
+                case "gif": tipoDiCodifica = .gif
+                case "jp2": tipoDiCodifica = .jpeg2000
+                default: throw ConversionError.unsupportedOutputFormat
+            }
+            
+            // Per ogni pagina selezionata, creiamo un'immagine in ALTA RISOLUZIONE!
+            for page in pagesToProcess {
+                let pageRect = page.bounds(for: .mediaBox)
+                
+                // I PDF su Mac sono misurati in "Punti" (solitamente 72 punti = 1 pollice).
+                // Per avere un'alta risoluzione (tipo 300 DPI), moltiplichiamo la dimensione x4!
+                let scaleFactor: CGFloat = 4.0
+                let highResSize = CGSize(width: pageRect.width * scaleFactor, height: pageRect.height * scaleFactor)
+                
+                let finalImage = NSImage(size: highResSize)
+                finalImage.lockFocus()
+                
+                if let ctx = NSGraphicsContext.current?.cgContext {
+                    // 1. Sfondo bianco
+                    NSColor.white.set()
+                    ctx.fill(CGRect(origin: .zero, size: highResSize))
+                    
+                    // 2. Ingigantiamo la "tela" del pittore prima di disegnare
+                    ctx.scaleBy(x: scaleFactor, y: scaleFactor)
+                    
+                    // 3. Facciamo disegnare la pagina al Mac. Essendo un PDF (vettoriale), 
+                    // la disegnerà nitidissima senza sgranare nulla!
+                    page.draw(with: .mediaBox, to: ctx)
+                }
+                
+                finalImage.unlockFocus()
+                
+                // Convertiamo l'immagine nei dati grezzi richiesti e li aggiungiamo all'array
+                if let tiffData = finalImage.tiffRepresentation,
+                   let bitmap = NSBitmapImageRep(data: tiffData),
+                   let finalData = bitmap.representation(using: tipoDiCodifica, properties: proprieta) {
+                    outputDataArray.append(finalData)
+                }
+            }
+            return outputDataArray
+        }
+    }
 }

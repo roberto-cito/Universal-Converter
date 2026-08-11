@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit // Necessario per usare NSWorkspace e le icone di macOS
+import PDFKit
 
 struct ConversionSettingsView: View {
     // VARIABILI (Dati in ingresso)
@@ -17,6 +18,9 @@ struct ConversionSettingsView: View {
         // NSWorkspace ci permette di dialogare col sistema (il Finder)
         return NSWorkspace.shared.icon(forFile: fileURL.path)
     }
+    
+    @Binding var options: ConversionOptions
+    @State private var totalPageCount: Int = 1
     
     var body: some View {
         // HStack (Horizontal Stack): Affianca gli elementi da sinistra a destra
@@ -80,5 +84,59 @@ struct ConversionSettingsView: View {
             
         }
         .padding()
+        
+        //SEZIONE OPZIONI PDF
+        if fileURL.pathExtension.lowercased() == "pdf" {
+                    VStack(spacing: 15) {
+                        Text("Opzioni PDF (\(totalPageCount) pagine totali)")
+                            .font(.headline)
+                        
+                        // Un Picker "a segmenti" (tipo linguette)
+                        Picker("", selection: $options.pageMode) {
+                            Text("Tutte").tag("Tutte")
+                            Text("Pagina singola").tag("Singola")
+                            Text("Range").tag("Range")
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 300)
+                        
+                        // Mostriamo i selettori giusti in base a cosa ha cliccato l'utente
+                        if options.pageMode == "Singola" {
+                            Stepper("Pagina: \(options.singlePage)", value: $options.singlePage, in: 1...totalPageCount)
+                                .frame(width: 200)
+                        } else if options.pageMode == "Range" {
+                            HStack {
+                                Stepper("Da: \(options.startPage)", value: $options.startPage, in: 1...totalPageCount)
+                                Stepper("A: \(options.endPage)", value: $options.endPage, in: options.startPage...totalPageCount)
+                            }
+                            .frame(width: 300)
+                        }
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 3)
+                    // QUANDO APPARE LA VIEW, CONTIAMO LE PAGINE DEL PDF:
+                    .onAppear {
+                        aggiornaPaginePDF()
+                    }
+                    .onChange(of: fileURL) {
+                        aggiornaPaginePDF()
+                    }
+                }
+    }
+    private func aggiornaPaginePDF() {
+        // 1. Chiediamo le chiavi del Sandbox
+        let gotAccess = fileURL.startAccessingSecurityScopedResource()
+        
+        // 2. Leggiamo il PDF
+        if let pdfDoc = PDFDocument(url: fileURL) {
+            self.totalPageCount = max(1, pdfDoc.pageCount)
+        }
+        
+        // 3. Restituiamo le chiavi
+        if gotAccess {
+            fileURL.stopAccessingSecurityScopedResource()
+        }
     }
 }

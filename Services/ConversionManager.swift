@@ -18,7 +18,8 @@ class ConversionManager {
         TIFConverter(),
         BMPConverter(),
         GIFConverter(),
-        JP2Converter()
+        JP2Converter(),
+        PDFConverter()
     ]
     
     // 3. Il metodo che la View chiamerà per sapere i formati disponibili
@@ -35,7 +36,7 @@ class ConversionManager {
     }
     
     // 4. La funzione che esegue effettivamente il lavoro
-    func performConversion(fileURL: URL, to targetFormat: String) throws -> Data {
+    func performConversion(fileURL: URL, to targetFormat: String, options: ConversionOptions? = nil) throws -> [Data] {
         let estensione = fileURL.pathExtension.lowercased()
         
         // Cerchiamo il convertitore giusto (es: il PNGConverter)
@@ -44,7 +45,6 @@ class ConversionManager {
         }
         
         // Diciamo a QUEL convertitore di fare il lavoro.
-        // Essendo che tutti hanno ereditato l'Extension, funzionerà in automatico!
-        return try converter.convert(inputURL: fileURL, to: targetFormat)
+        return try converter.convert(inputURL: fileURL, to: targetFormat, options: options)
     }
 }
