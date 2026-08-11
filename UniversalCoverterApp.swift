@@ -12,7 +12,8 @@ struct UniversalCoverterApp: App {
     var body: some Scene {
         WindowGroup {
             FileDropZoneView()
-                .frame(width: 400, height: 300)
+                // Aumentiamo l'altezza fissa da 300 a 400 per accomodare i nuovi bottoni e messaggi
+                .frame(width: 400, height: 400)
         }
         .windowResizability(.contentSize)
         .commands{
