@@ -37,8 +37,9 @@ struct FileDropZoneView: View {
                     // IL NUOVO BOTTONE DI CONVERSIONE
                     Button(action: {
                         do {
-                            // 1. Ora riceviamo un ARRAY di dati!
-                            let dataArray = try ConversionManager.shared.performConversion(fileURL: url, to: selectedOutputFormat, options: conversionOptions)
+                            // 1. Ora riceviamo un ConversionResult!
+                            let conversionResult = try ConversionManager.shared.performConversion(fileURL: url, to: selectedOutputFormat, options: conversionOptions)
+                            let dataArray = conversionResult.outputData
                             
                             if dataArray.isEmpty { throw NSError(domain: "App", code: 1, userInfo: [NSLocalizedDescriptionKey: "Nessun dato generato."]) }
                             
@@ -50,7 +51,11 @@ struct FileDropZoneView: View {
                                 
                                 if savePanel.runModal() == .OK, let saveURL = savePanel.url {
                                     try dataArray[0].write(to: saveURL)
-                                    self.statusMessage = "✅ Salvato con successo"
+                                    if let warning = conversionResult.warningMessage {
+                                        self.statusMessage = warning
+                                    } else {
+                                        self.statusMessage = "✅ Salvato con successo"
+                                    }
                                 }
                             } else {
                                 // --- CASO B: FILE MULTIPLI (Cartella) ---
@@ -75,12 +80,16 @@ struct FileDropZoneView: View {
                                         try fileData.write(to: fileURL)
                                     }
                                     
-                                    self.statusMessage = "✅ Salvate \(dataArray.count) immagini"
+                                    if let warning = conversionResult.warningMessage {
+                                        self.statusMessage = warning
+                                    } else {
+                                        self.statusMessage = "✅ Salvate \(dataArray.count) immagini"
+                                    }
                                 }
                             }
                             
-                            // Ripuliamo la GUI
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                            // Ripuliamo la GUI se è un successo puro (non un warning e non un errore)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
                                 if self.statusMessage.contains("✅") {
                                     self.selectedFileURL = nil
                                     self.statusMessage = ""
@@ -102,7 +111,7 @@ struct FileDropZoneView: View {
                     // MESSAGGIO DI ERRORE/SUCCESSO DELLA CONVERSIONE
                     if !statusMessage.isEmpty {
                         Text(statusMessage)
-                            .foregroundColor(statusMessage.contains("❌") ? .red : .green)
+                            .foregroundColor(statusMessage.contains("❌") ? .red : (statusMessage.contains("⚠️") ? .orange : .green))
                             .font(.headline)
                             .multilineTextAlignment(.center)
                             .padding(.bottom, 5)

@@ -38,7 +38,7 @@ class ConversionManager {
     }
     
     // 4. La funzione che esegue effettivamente il lavoro
-    func performConversion(fileURL: URL, to targetFormat: String, options: ConversionOptions? = nil) throws -> [Data] {
+    func performConversion(fileURL: URL, to targetFormat: String, options: ConversionOptions? = nil) throws -> ConversionResult {
         let estensione = fileURL.pathExtension.lowercased()
         
         // Cerchiamo il convertitore giusto (es: il PNGConverter)
