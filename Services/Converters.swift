@@ -118,7 +118,7 @@ struct JP2Converter: ImageConverter {
 
 struct PDFConverter: ImageConverter {
     let sourceFormat = "pdf"
-    let supportedOutputFormats = ["png", "jpg", "tiff", "bmp", "gif", "rtf", "txt", "doc", "docx"]
+    let supportedOutputFormats = ["pdf", "png", "jpg", "tiff", "bmp", "gif", "rtf", "txt", "doc", "docx"]
     
     func convert(inputURL: URL, to targetFormat: String, options: ConversionOptions?) throws -> ConversionResult {
         let gotAccess = inputURL.startAccessingSecurityScopedResource()
@@ -149,7 +149,20 @@ struct PDFConverter: ImageConverter {
             }
         }
         
-        if targetFormat == "txt" {
+        if targetFormat == "pdf" {
+            let newPdf = PDFDocument()
+            for page in pagesToProcess {
+                if let copy = page.copy() as? PDFPage {
+                    newPdf.insert(copy, at: newPdf.pageCount)
+                }
+            }
+            if let newData = newPdf.dataRepresentation() {
+                return ConversionResult(outputData: [newData], warningMessage: nil)
+            } else {
+                throw ConversionError.generationFailed
+            }
+        }
+        else if targetFormat == "txt" {
             let allText = pagesToProcess.compactMap { $0.string }.joined(separator: "\n\n--- Pagina Seguente ---\n\n")
             return ConversionResult(outputData: [allText.data(using: .utf8) ?? Data()], warningMessage: nil)
         }
@@ -278,22 +291,11 @@ func nativeFallbackWordToPDF(inputURL: URL, docType: NSAttributedString.Document
     )
 }
 
-struct DOCXConverter: ImageConverter {
-    let sourceFormat = "docx"
-    let supportedOutputFormats = ["pdf"]
+func convertWordDocument(inputURL: URL, targetFormat: String, options: ConversionOptions?, docType: NSAttributedString.DocumentType) throws -> ConversionResult {
+    var pdfData: Data
+    var finalWarning: String? = nil
     
-    func convert(inputURL: URL, to targetFormat: String, options: ConversionOptions?) throws -> ConversionResult {
-        let gotAccess = inputURL.startAccessingSecurityScopedResource()
-        defer { if gotAccess { inputURL.stopAccessingSecurityScopedResource() } }
-        
-        guard targetFormat == "pdf" else {
-            throw ConversionError.unsupportedOutputFormat
-        }
-        
-        guard let enginePath = Bundle.main.path(forResource: "convert_pdf", ofType: nil) else {
-            return try nativeFallbackWordToPDF(inputURL: inputURL, docType: .officeOpenXML)
-        }
-        
+    if let enginePath = Bundle.main.path(forResource: "convert_pdf", ofType: nil) {
         let tempDir = FileManager.default.temporaryDirectory
         let tempFileName = UUID().uuidString + ".pdf"
         let tempFileURL = tempDir.appendingPathComponent(tempFileName)
@@ -306,56 +308,57 @@ struct DOCXConverter: ImageConverter {
             try process.run()
             process.waitUntilExit()
             
-            if process.terminationStatus != 0 {
-                return try nativeFallbackWordToPDF(inputURL: inputURL, docType: .officeOpenXML)
+            if process.terminationStatus == 0 {
+                pdfData = try Data(contentsOf: tempFileURL)
+                try? FileManager.default.removeItem(at: tempFileURL)
+            } else {
+                let fallback = try nativeFallbackWordToPDF(inputURL: inputURL, docType: docType)
+                pdfData = fallback.outputData[0]
+                finalWarning = fallback.warningMessage
             }
-            
-            let outData = try Data(contentsOf: tempFileURL)
-            try? FileManager.default.removeItem(at: tempFileURL)
-            return ConversionResult(outputData: [outData], warningMessage: nil)
         } catch {
-            return try nativeFallbackWordToPDF(inputURL: inputURL, docType: .officeOpenXML)
+            let fallback = try nativeFallbackWordToPDF(inputURL: inputURL, docType: docType)
+            pdfData = fallback.outputData[0]
+            finalWarning = fallback.warningMessage
         }
+    } else {
+        let fallback = try nativeFallbackWordToPDF(inputURL: inputURL, docType: docType)
+        pdfData = fallback.outputData[0]
+        finalWarning = fallback.warningMessage
+    }
+    
+    if targetFormat == "pdf" && (options?.pageMode == "Tutte" || options == nil) {
+        return ConversionResult(outputData: [pdfData], warningMessage: finalWarning)
+    }
+    
+    let tempPDF = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".pdf")
+    try pdfData.write(to: tempPDF)
+    defer { try? FileManager.default.removeItem(at: tempPDF) }
+    
+    let pdfConverter = PDFConverter()
+    let extractionResult = try pdfConverter.convert(inputURL: tempPDF, to: targetFormat, options: options)
+    
+    return ConversionResult(outputData: extractionResult.outputData, warningMessage: finalWarning)
+}
+
+struct DOCXConverter: ImageConverter {
+    let sourceFormat = "docx"
+    let supportedOutputFormats = ["pdf", "png", "jpg", "jpeg", "tiff", "bmp", "gif", "jp2"]
+    
+    func convert(inputURL: URL, to targetFormat: String, options: ConversionOptions?) throws -> ConversionResult {
+        let gotAccess = inputURL.startAccessingSecurityScopedResource()
+        defer { if gotAccess { inputURL.stopAccessingSecurityScopedResource() } }
+        return try convertWordDocument(inputURL: inputURL, targetFormat: targetFormat, options: options, docType: .officeOpenXML)
     }
 }
 
 struct DOCConverter: ImageConverter {
     let sourceFormat = "doc"
-    let supportedOutputFormats = ["pdf"]
+    let supportedOutputFormats = ["pdf", "png", "jpg", "jpeg", "tiff", "bmp", "gif", "jp2"]
     
     func convert(inputURL: URL, to targetFormat: String, options: ConversionOptions?) throws -> ConversionResult {
         let gotAccess = inputURL.startAccessingSecurityScopedResource()
         defer { if gotAccess { inputURL.stopAccessingSecurityScopedResource() } }
-        
-        guard targetFormat == "pdf" else {
-            throw ConversionError.unsupportedOutputFormat
-        }
-        
-        guard let enginePath = Bundle.main.path(forResource: "convert_pdf", ofType: nil) else {
-            return try nativeFallbackWordToPDF(inputURL: inputURL, docType: .docFormat)
-        }
-        
-        let tempDir = FileManager.default.temporaryDirectory
-        let tempFileName = UUID().uuidString + ".pdf"
-        let tempFileURL = tempDir.appendingPathComponent(tempFileName)
-        
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: enginePath)
-        process.arguments = [inputURL.path, tempFileURL.path]
-        
-        do {
-            try process.run()
-            process.waitUntilExit()
-            
-            if process.terminationStatus != 0 {
-                return try nativeFallbackWordToPDF(inputURL: inputURL, docType: .docFormat)
-            }
-            
-            let outData = try Data(contentsOf: tempFileURL)
-            try? FileManager.default.removeItem(at: tempFileURL)
-            return ConversionResult(outputData: [outData], warningMessage: nil)
-        } catch {
-            return try nativeFallbackWordToPDF(inputURL: inputURL, docType: .docFormat)
-        }
+        return try convertWordDocument(inputURL: inputURL, targetFormat: targetFormat, options: options, docType: .docFormat)
     }
 }

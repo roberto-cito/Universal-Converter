@@ -85,58 +85,71 @@ struct ConversionSettingsView: View {
         }
         .padding()
         
-        //SEZIONE OPZIONI PDF
-        if fileURL.pathExtension.lowercased() == "pdf" {
-                    VStack(spacing: 15) {
-                        Text("Opzioni PDF (\(totalPageCount) pagine totali)")
-                            .font(.headline)
-                        
-                        // Un Picker "a segmenti" (tipo linguette)
-                        Picker("", selection: $options.pageMode) {
-                            Text("Tutte").tag("Tutte")
-                            Text("Pagina singola").tag("Singola")
-                            Text("Range").tag("Range")
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(width: 300)
-                        
-                        // Mostriamo i selettori giusti in base a cosa ha cliccato l'utente
-                        if options.pageMode == "Singola" {
-                            Stepper("Pagina: \(options.singlePage)", value: $options.singlePage, in: 1...totalPageCount)
-                                .frame(width: 200)
-                        } else if options.pageMode == "Range" {
-                            HStack {
-                                Stepper("Da: \(options.startPage)", value: $options.startPage, in: 1...totalPageCount)
-                                Stepper("A: \(options.endPage)", value: $options.endPage, in: options.startPage...totalPageCount)
-                            }
-                            .frame(width: 300)
-                        }
-                    }
-                    .padding()
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(12)
-                    .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 3)
-                    // QUANDO APPARE LA VIEW, CONTIAMO LE PAGINE DEL PDF:
-                    .onAppear {
-                        aggiornaPaginePDF()
-                    }
-                    .onChange(of: fileURL) {
-                        aggiornaPaginePDF()
-                    }
+        //SEZIONE OPZIONI PAGINE
+        let estensione = fileURL.pathExtension.lowercased()
+        if ["pdf", "docx", "doc"].contains(estensione) {
+            VStack(spacing: 15) {
+                if estensione == "pdf" {
+                    Text("Opzioni PDF (\(totalPageCount) pagine totali)")
+                        .font(.headline)
+                } else {
+                    Text("Selezione Pagine")
+                        .font(.headline)
                 }
+                
+                // Un Picker "a segmenti" (tipo linguette)
+                Picker("", selection: $options.pageMode) {
+                    Text("Tutte").tag("Tutte")
+                    Text("Pagina singola").tag("Singola")
+                    Text("Range").tag("Range")
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 300)
+                
+                // Mostriamo i selettori giusti in base a cosa ha cliccato l'utente
+                if options.pageMode == "Singola" {
+                    Stepper("Pagina: \(options.singlePage)", value: $options.singlePage, in: 1...totalPageCount)
+                        .frame(width: 200)
+                } else if options.pageMode == "Range" {
+                    HStack {
+                        Stepper("Da: \(options.startPage)", value: $options.startPage, in: 1...totalPageCount)
+                        Stepper("A: \(options.endPage)", value: $options.endPage, in: options.startPage...totalPageCount)
+                    }
+                    .frame(width: 300)
+                }
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(12)
+            .shadow(color: Color.black.opacity(0.15), radius: 6, x: 0, y: 3)
+            // QUANDO APPARE LA VIEW, CONTIAMO LE PAGINE DEL PDF:
+            .onAppear {
+                aggiornaPaginePDF()
+            }
+            .onChange(of: fileURL) {
+                aggiornaPaginePDF()
+            }
+        }
     }
     private func aggiornaPaginePDF() {
-        // 1. Chiediamo le chiavi del Sandbox
-        let gotAccess = fileURL.startAccessingSecurityScopedResource()
-        
-        // 2. Leggiamo il PDF
-        if let pdfDoc = PDFDocument(url: fileURL) {
-            self.totalPageCount = max(1, pdfDoc.pageCount)
-        }
-        
-        // 3. Restituiamo le chiavi
-        if gotAccess {
-            fileURL.stopAccessingSecurityScopedResource()
+        let estensione = fileURL.pathExtension.lowercased()
+        if estensione == "pdf" {
+            // 1. Chiediamo le chiavi del Sandbox
+            let gotAccess = fileURL.startAccessingSecurityScopedResource()
+            
+            // 2. Leggiamo il PDF
+            if let pdfDoc = PDFDocument(url: fileURL) {
+                self.totalPageCount = max(1, pdfDoc.pageCount)
+            }
+            
+            // 3. Restituiamo le chiavi
+            if gotAccess {
+                fileURL.stopAccessingSecurityScopedResource()
+            }
+        } else {
+            // Per i file Word non possiamo sapere il numero di pagine senza convertirli.
+            // Impostiamo un limite arbitrario molto alto. Il convertitore ignorerà i numeri fuori range.
+            self.totalPageCount = 999
         }
     }
 }
