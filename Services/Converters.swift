@@ -128,7 +128,7 @@ struct JP2Converter: ImageConverter {
 
 struct PDFConverter: ImageConverter {
     let sourceFormat = "pdf"
-    let supportedOutputFormats = ["png", "jpg", "tiff", "bmp", "gif", "rtf", "txt"]
+    let supportedOutputFormats = ["png", "jpg", "tiff", "bmp", "gif", "rtf", "txt", "doc", "docx"]
     
     func convert(inputURL: URL, to targetFormat: String, options: ConversionOptions?) throws -> [Data] {
         let gotAccess = inputURL.startAccessingSecurityScopedResource()
@@ -162,7 +162,11 @@ struct PDFConverter: ImageConverter {
             let allText = pagesToProcess.compactMap { $0.string }.joined(separator: "\n\n--- Pagina Seguente ---\n\n")
             return [allText.data(using: .utf8) ?? Data()]
         }
-        else if targetFormat == "rtf" {
+        else if targetFormat == "docx" {
+            let docxData = try convertWithPythonEngine(inputURL: inputURL, targetExtension: "docx")
+            return [docxData]
+        }
+        else if targetFormat == "rtf" || targetFormat == "doc" {
             let fullAttributedString = NSMutableAttributedString()
             for page in pagesToProcess {
                 if let attrString = page.attributedString {
@@ -170,10 +174,16 @@ struct PDFConverter: ImageConverter {
                     fullAttributedString.append(NSAttributedString(string: "\n\n"))
                 }
             }
-            // Convertiamo in formato RTF
-            let rtfData = try fullAttributedString.data(from: NSRange(location: 0, length: fullAttributedString.length),
-            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf])
-            return [rtfData]
+            let docType: NSAttributedString.DocumentType
+            if targetFormat == "rtf" {
+                docType = .rtf
+            }
+            else {
+                docType = .docFormat
+            }
+            let data = try fullAttributedString.data(from: NSRange(location: 0, length: fullAttributedString.length),
+            documentAttributes: [.documentType: docType])
+            return [data]
         }
         else {
             var outputDataArray: [Data] = []
@@ -229,5 +239,113 @@ struct PDFConverter: ImageConverter {
             }
             return outputDataArray
         }
+    }
+    
+    // Funzione segreta per parlare con l'eseguibile Python
+    private func convertWithPythonEngine(inputURL: URL, targetExtension: String) throws -> Data {
+        guard let enginePath = Bundle.main.path(forResource: "convert_pdf", ofType: nil) else {
+            print("Errore: Eseguibile Python non trovato nel bundle.")
+            throw ConversionError.generationFailed
+        }
+        
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempFileName = UUID().uuidString + "." + targetExtension
+        let tempFileURL = tempDir.appendingPathComponent(tempFileName)
+        
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: enginePath)
+        process.arguments = [inputURL.path, tempFileURL.path]
+        
+        try process.run()
+        process.waitUntilExit()
+        
+        if process.terminationStatus != 0 {
+            print("Errore nel processo Python interno.")
+            throw ConversionError.generationFailed
+        }
+        
+        let outData = try Data(contentsOf: tempFileURL)
+        try? FileManager.default.removeItem(at: tempFileURL)
+        return outData
+    }
+}
+
+// 3. IL NUOVO CONVERTITORE DOCX (Per la conversione inversa)
+struct DOCXConverter: ImageConverter {
+    let sourceFormat = "docx"
+    let supportedOutputFormats = ["pdf"]
+    
+    func convert(inputURL: URL, to targetFormat: String, options: ConversionOptions?) throws -> [Data] {
+        let gotAccess = inputURL.startAccessingSecurityScopedResource()
+        defer { if gotAccess { inputURL.stopAccessingSecurityScopedResource() } }
+        
+        guard targetFormat == "pdf" else {
+            throw ConversionError.unsupportedOutputFormat
+        }
+        
+        guard let enginePath = Bundle.main.path(forResource: "convert_pdf", ofType: nil) else {
+            print("Errore: Eseguibile Python non trovato nel bundle.")
+            throw ConversionError.generationFailed
+        }
+        
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempFileName = UUID().uuidString + ".pdf"
+        let tempFileURL = tempDir.appendingPathComponent(tempFileName)
+        
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: enginePath)
+        process.arguments = [inputURL.path, tempFileURL.path]
+        
+        try process.run()
+        process.waitUntilExit()
+        
+        if process.terminationStatus != 0 {
+            print("Errore nel processo Python interno.")
+            throw ConversionError.generationFailed
+        }
+        
+        let outData = try Data(contentsOf: tempFileURL)
+        try? FileManager.default.removeItem(at: tempFileURL)
+        return [outData]
+    }
+}
+
+// 4. IL NUOVO CONVERTITORE DOC (Per i file Word vecchi)
+struct DOCConverter: ImageConverter {
+    let sourceFormat = "doc"
+    let supportedOutputFormats = ["pdf"]
+    
+    func convert(inputURL: URL, to targetFormat: String, options: ConversionOptions?) throws -> [Data] {
+        let gotAccess = inputURL.startAccessingSecurityScopedResource()
+        defer { if gotAccess { inputURL.stopAccessingSecurityScopedResource() } }
+        
+        guard targetFormat == "pdf" else {
+            throw ConversionError.unsupportedOutputFormat
+        }
+        
+        guard let enginePath = Bundle.main.path(forResource: "convert_pdf", ofType: nil) else {
+            print("Errore: Eseguibile Python non trovato nel bundle.")
+            throw ConversionError.generationFailed
+        }
+        
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempFileName = UUID().uuidString + ".pdf"
+        let tempFileURL = tempDir.appendingPathComponent(tempFileName)
+        
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: enginePath)
+        process.arguments = [inputURL.path, tempFileURL.path]
+        
+        try process.run()
+        process.waitUntilExit()
+        
+        if process.terminationStatus != 0 {
+            print("Errore nel processo Python interno.")
+            throw ConversionError.generationFailed
+        }
+        
+        let outData = try Data(contentsOf: tempFileURL)
+        try? FileManager.default.removeItem(at: tempFileURL)
+        return [outData]
     }
 }
