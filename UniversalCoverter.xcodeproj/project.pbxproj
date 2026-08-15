@@ -10,21 +10,23 @@
 		20D8EB4E302B3F9B00225AD9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20D8EB4A302B3F9B00225AD9 /* Assets.xcassets */; };
 		20D8EB4F302B3F9B00225AD9 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D8EB4C302B3F9B00225AD9 /* MainView.swift */; };
 		20D8EB50302B3F9B00225AD9 /* UniversalCoverterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D8EB4B302B3F9B00225AD9 /* UniversalCoverterApp.swift */; };
-		20D8EB53302B441D00225AD9 /* ImageConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D8EB51302B441D00225AD9 /* ImageConverter.swift */; };
+		20D8EB53302B441D00225AD9 /* Converters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D8EB51302B441D00225AD9 /* Converters.swift */; };
 		20D8EB55302B447700225AD9 /* ConversionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D8EB54302B447700225AD9 /* ConversionManager.swift */; };
 		20D8EB57302B458A00225AD9 /* ConversionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D8EB56302B458A00225AD9 /* ConversionSettingsView.swift */; };
 		20D8EB59302B699F00225AD9 /* ConversionOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D8EB58302B699F00225AD9 /* ConversionOptions.swift */; };
+		20D8EB61302B81D800225AD9 /* convert_pdf in Resources */ = {isa = PBXBuildFile; fileRef = 20D8EB60302B81D800225AD9 /* convert_pdf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		20AF31D8302B3AE7002A49AD /* UniversalCoverter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = UniversalCoverter.app; path = /Users/robertocito/Documents/Github/UniversalCoverter/build/Debug/UniversalCoverter.app; sourceTree = "<absolute>"; };
 		20D8EB4A302B3F9B00225AD9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		20D8EB4B302B3F9B00225AD9 /* UniversalCoverterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalCoverterApp.swift; sourceTree = "<group>"; };
 		20D8EB4C302B3F9B00225AD9 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
-		20D8EB51302B441D00225AD9 /* ImageConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageConverter.swift; sourceTree = "<group>"; };
+		20D8EB51302B441D00225AD9 /* Converters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Converters.swift; sourceTree = "<group>"; };
 		20D8EB54302B447700225AD9 /* ConversionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversionManager.swift; sourceTree = "<group>"; };
 		20D8EB56302B458A00225AD9 /* ConversionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversionSettingsView.swift; sourceTree = "<group>"; };
 		20D8EB58302B699F00225AD9 /* ConversionOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversionOptions.swift; sourceTree = "<group>"; };
+		20D8EB5C302B7D1700225AD9 /* UniversalCoverter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = UniversalCoverter.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		20D8EB60302B81D800225AD9 /* convert_pdf */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = convert_pdf; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -41,10 +43,12 @@
 		20AF31CF302B3AE7002A49AD = {
 			isa = PBXGroup;
 			children = (
+				20D8EB5D302B7DEA00225AD9 /* Coverters */,
 				20D8EB4A302B3F9B00225AD9 /* Assets.xcassets */,
 				20D8EB4B302B3F9B00225AD9 /* UniversalCoverterApp.swift */,
 				20D8EB4D302B3F9B00225AD9 /* Views */,
 				20D8EB52302B441D00225AD9 /* Services */,
+				20D8EB5C302B7D1700225AD9 /* UniversalCoverter.app */,
 			);
 			sourceTree = "<group>";
 		};
@@ -60,11 +64,19 @@
 		20D8EB52302B441D00225AD9 /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				20D8EB51302B441D00225AD9 /* ImageConverter.swift */,
+				20D8EB51302B441D00225AD9 /* Converters.swift */,
 				20D8EB54302B447700225AD9 /* ConversionManager.swift */,
 				20D8EB58302B699F00225AD9 /* ConversionOptions.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		20D8EB5D302B7DEA00225AD9 /* Coverters */ = {
+			isa = PBXGroup;
+			children = (
+				20D8EB60302B81D800225AD9 /* convert_pdf */,
+			);
+			path = Coverters;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -86,7 +98,7 @@
 			packageProductDependencies = (
 			);
 			productName = UniversalCoverter;
-			productReference = 20AF31D8302B3AE7002A49AD /* UniversalCoverter.app */;
+			productReference = 20D8EB5C302B7D1700225AD9 /* UniversalCoverter.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -129,6 +141,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				20D8EB4E302B3F9B00225AD9 /* Assets.xcassets in Resources */,
+				20D8EB61302B81D800225AD9 /* convert_pdf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -143,7 +156,7 @@
 				20D8EB4F302B3F9B00225AD9 /* MainView.swift in Sources */,
 				20D8EB59302B699F00225AD9 /* ConversionOptions.swift in Sources */,
 				20D8EB50302B3F9B00225AD9 /* UniversalCoverterApp.swift in Sources */,
-				20D8EB53302B441D00225AD9 /* ImageConverter.swift in Sources */,
+				20D8EB53302B441D00225AD9 /* Converters.swift in Sources */,
 				20D8EB55302B447700225AD9 /* ConversionManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -275,7 +288,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 3XPTBU56V3;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
@@ -329,7 +342,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 3XPTBU56V3;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;

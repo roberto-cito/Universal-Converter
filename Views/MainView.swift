@@ -168,7 +168,12 @@ struct FileDropZoneView: View {
         .padding()
         .fileImporter(
             isPresented: $showFilePicker,
-            allowedContentTypes: [.image, .pdf],
+            allowedContentTypes: [
+                .image,
+                .pdf,
+                UTType(filenameExtension: "docx") ?? .data,
+                UTType(filenameExtension: "doc") ?? .data
+            ],
             allowsMultipleSelection: false
         ) { result in
             switch result {

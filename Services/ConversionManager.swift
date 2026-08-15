@@ -19,7 +19,9 @@ class ConversionManager {
         BMPConverter(),
         GIFConverter(),
         JP2Converter(),
-        PDFConverter()
+        PDFConverter(),
+        DOCXConverter(),
+        DOCConverter()
     ]
     
     // 3. Il metodo che la View chiamerà per sapere i formati disponibili
