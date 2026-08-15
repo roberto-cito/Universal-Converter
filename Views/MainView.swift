@@ -181,7 +181,8 @@ struct FileDropZoneView: View {
                 .image,
                 .pdf,
                 UTType(filenameExtension: "docx") ?? .data,
-                UTType(filenameExtension: "doc") ?? .data
+                UTType(filenameExtension: "doc") ?? .data,
+                UTType.html
             ],
             allowsMultipleSelection: false
         ) { result in

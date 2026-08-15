@@ -118,7 +118,7 @@ struct JP2Converter: ImageConverter {
 
 struct PDFConverter: ImageConverter {
     let sourceFormat = "pdf"
-    let supportedOutputFormats = ["pdf", "png", "jpg", "tiff", "bmp", "gif", "rtf", "txt", "doc", "docx"]
+    let supportedOutputFormats = ["pdf", "png", "jpg", "tiff", "bmp", "gif", "rtf", "txt", "doc", "docx", "html"]
     
     func convert(inputURL: URL, to targetFormat: String, options: ConversionOptions?) throws -> ConversionResult {
         let gotAccess = inputURL.startAccessingSecurityScopedResource()
@@ -170,7 +170,11 @@ struct PDFConverter: ImageConverter {
             let docxData = try convertWithPythonEngine(inputURL: inputURL, targetExtension: "docx")
             return ConversionResult(outputData: [docxData], warningMessage: nil)
         }
-        else if targetFormat == "rtf" || targetFormat == "doc" {
+        else if targetFormat == "html" {
+            let htmlData = try convertWithHtmlEngine(inputURL: inputURL, targetExtension: "html")
+            return ConversionResult(outputData: [htmlData], warningMessage: nil)
+        }
+        else if targetFormat == "rtf" || targetFormat == "doc" || targetFormat == "html" {
             let fullAttributedString = NSMutableAttributedString()
             for page in pagesToProcess {
                 if let attrString = page.attributedString {
@@ -182,8 +186,11 @@ struct PDFConverter: ImageConverter {
             if targetFormat == "rtf" {
                 docType = .rtf
             }
-            else {
+            else if targetFormat == "doc" {
                 docType = .docFormat
+            }
+            else {
+                docType = .html
             }
             let data = try fullAttributedString.data(from: NSRange(location: 0, length: fullAttributedString.length),
             documentAttributes: [.documentType: docType])
@@ -236,6 +243,31 @@ struct PDFConverter: ImageConverter {
     
     private func convertWithPythonEngine(inputURL: URL, targetExtension: String) throws -> Data {
         guard let enginePath = Bundle.main.path(forResource: "convert_pdf", ofType: nil) else {
+            throw ConversionError.generationFailed
+        }
+        
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempFileName = UUID().uuidString + "." + targetExtension
+        let tempFileURL = tempDir.appendingPathComponent(tempFileName)
+        
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: enginePath)
+        process.arguments = [inputURL.path, tempFileURL.path]
+        
+        try process.run()
+        process.waitUntilExit()
+        
+        if process.terminationStatus != 0 {
+            throw ConversionError.generationFailed
+        }
+        
+        let outData = try Data(contentsOf: tempFileURL)
+        try? FileManager.default.removeItem(at: tempFileURL)
+        return outData
+    }
+    
+    private func convertWithHtmlEngine(inputURL: URL, targetExtension: String) throws -> Data {
+        guard let enginePath = Bundle.main.path(forResource: "convert_html", ofType: nil) else {
             throw ConversionError.generationFailed
         }
         
@@ -362,3 +394,46 @@ struct DOCConverter: ImageConverter {
         return try convertWordDocument(inputURL: inputURL, targetFormat: targetFormat, options: options, docType: .docFormat)
     }
 }
+
+struct HTMLConverter: ImageConverter {
+    let sourceFormat = "html"
+    let supportedOutputFormats = ["pdf"]
+    
+    func convert(inputURL: URL, to targetFormat: String, options: ConversionOptions?) throws -> ConversionResult {
+        let gotAccess = inputURL.startAccessingSecurityScopedResource()
+        defer { if gotAccess { inputURL.stopAccessingSecurityScopedResource() } }
+        
+        if targetFormat == "pdf" {
+            let pdfData = try convertWithHtmlEngine(inputURL: inputURL, targetExtension: "pdf")
+            return ConversionResult(outputData: [pdfData], warningMessage: nil)
+        } else {
+            throw ConversionError.unsupportedOutputFormat
+        }
+    }
+    
+    private func convertWithHtmlEngine(inputURL: URL, targetExtension: String) throws -> Data {
+        guard let enginePath = Bundle.main.path(forResource: "convert_html", ofType: nil) else {
+            throw ConversionError.generationFailed
+        }
+        
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempFileName = UUID().uuidString + "." + targetExtension
+        let tempFileURL = tempDir.appendingPathComponent(tempFileName)
+        
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: enginePath)
+        process.arguments = [inputURL.path, tempFileURL.path]
+        
+        try process.run()
+        process.waitUntilExit()
+        
+        if process.terminationStatus != 0 {
+            throw ConversionError.generationFailed
+        }
+        
+        let outData = try Data(contentsOf: tempFileURL)
+        try? FileManager.default.removeItem(at: tempFileURL)
+        return outData
+    }
+}
+

@@ -21,7 +21,8 @@ class ConversionManager {
         JP2Converter(),
         PDFConverter(),
         DOCXConverter(),
-        DOCConverter()
+        DOCConverter(),
+        HTMLConverter()
     ]
     
     // 3. Il metodo che la View chiamerà per sapere i formati disponibili

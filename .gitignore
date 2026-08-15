@@ -1,2 +1,4 @@
-/coverter/dist
-/converter/build
+/coverter/convert_pdf/dist
+/converter/convert_pdf/build
+/coverter/covert_html/dist
+/converter/convert_html/build
